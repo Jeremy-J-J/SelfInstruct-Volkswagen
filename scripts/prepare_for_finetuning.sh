@@ -5,4 +5,4 @@ python self_instruct/prepare_for_finetuning.py \
     --classification_type_files ${batch_dir}/is_clf_or_not_davinci_template_1.jsonl \
     --output_dir ${batch_dir}/finetuning_data \
     --include_seed_tasks \
-    --seed_tasks_path data/seed_tasks_openscenario_intention2xsoc_en.jsonl
+    --seed_tasks_path seed/seed_tasks_openscenario_intention2xsoc_en.jsonl
