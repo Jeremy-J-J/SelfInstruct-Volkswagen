@@ -158,9 +158,9 @@ def parse_instances_for_generation_task(raw_text, instruction, response_metadata
     SPLIT_RE = re.compile(
         r'''
         ^(.*?)                       # 1. 非贪婪匹配前面所有内容 -> inst_input
-        (\n\n```xml\n                # 2. 开始标记（含前面的两个换行）
+        (\n*```xml\n                 # 2. 开始标记（可能前面有0个或多个换行）
         .*?                          #    中间任意内容（非贪婪）
-        </OpenSCENARIO>\n```\n\n)    # 3. 结束标记（含换行）
+        </(?i:OpenScenario)>\n```\n*)    # 3. 结束标记（兼容大小写：OpenScenario 或 OpenSCENARIO，后面可能有换行）
         ''',
         re.DOTALL | re.VERBOSE
     )
