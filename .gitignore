@@ -1,3 +1,4 @@
 data
+*.pyc
 **/templates
 **/__pycache__
