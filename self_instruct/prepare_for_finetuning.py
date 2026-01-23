@@ -51,23 +51,23 @@ def parse_args():
     return parser.parse_args()
 
 
-def encode_instance(instruction, input, output, random_template=True):
+def encode_instance(instruction, input, output, random_template=True, source="machine"):
     encoding_templates_w_input = [
-        ("{instruction}\nInput: {input}\nOutput:", " {output}<|endoftext|>"),
-        ("{instruction}\n\nInput: {input}\n\nOutput:", " {output}<|endoftext|>"),
-        ("Task: {instruction}\nInput: {input}\nOutput:", " {output}<|endoftext|>"),
-        ("{instruction}\n\n{input}\n\nOutput:", " {output}<|endoftext|>"),
-        ("{instruction}\n\n{input}\n\n", "{output}<|endoftext|>"),
-        ("{instruction}\n{input}\n\n", "{output}<|endoftext|>"),
-        ("Task: {instruction}\n\n{input}\n\n", "{output}<|endoftext|>"),
+        ("{instruction}\nInput: {input}\nOutput:", " {output}"),
+        ("{instruction}\n\nInput: {input}\n\nOutput:", " {output}"),
+        ("Task: {instruction}\nInput: {input}\nOutput:", " {output}"),
+        ("{instruction}\n\n{input}\n\nOutput:", " {output}"),
+        ("{instruction}\n\n{input}\n\n", "{output}"),
+        ("{instruction}\n{input}\n\n", "{output}"),
+        ("Task: {instruction}\n\n{input}\n\n", "{output}"),
     ]
     encoding_templates_wo_input = [
-        ("{instruction} Output:", " {output}<|endoftext|>"),
-        ("{instruction}\nOutput:", " {output}<|endoftext|>"),
-        ("{instruction}\n\nOutput:", " {output}<|endoftext|>"),
-        ("{instruction}\n", "{output}<|endoftext|>"),
-        ("{instruction}\n\n", "{output}<|endoftext|>"),
-        ("Task: {instruction}\n\n", "{output}<|endoftext|>"),
+        ("{instruction} Output:", " {output}"),
+        ("{instruction}\nOutput:", " {output}"),
+        ("{instruction}\n\nOutput:", " {output}"),
+        ("{instruction}\n", "{output}"),
+        ("{instruction}\n\n", "{output}"),
+        ("Task: {instruction}\n\n", "{output}"),
     ]
     if random_template:
         if input.strip() != "":
@@ -80,7 +80,7 @@ def encode_instance(instruction, input, output, random_template=True):
             completion = completion_template.format(output=output.strip())
     else:
         prompt = instruction.strip() + "\n\n" + input.strip() + "\n\n"
-        completion = output.strip() + "<|endoftext|>"
+        completion = output.strip() + ""
 
     data = {
         "prompt": prompt,
@@ -88,6 +88,7 @@ def encode_instance(instruction, input, output, random_template=True):
         "instruction": instruction.strip(),
         "input": input.strip(),
         "output": output.strip(),
+        "from": source,
     }
     return data
 
@@ -215,6 +216,7 @@ def parse_instances_for_classification_task(raw_text, instruction, response_meta
 if __name__ == "__main__":
     args = parse_args()
 
+    # 使用元组存储实例和来源信息 (instruction, input, output, source)
     training_instances = []
     
     generated_tasks = []
@@ -248,7 +250,9 @@ if __name__ == "__main__":
         if not task_instances:
             continue
 
-        training_instances += task_instances
+        # 添加机器生成的数据，并标记来源为 "machine"
+        for instance in task_instances:
+            training_instances.append((instance[0], instance[1], instance[2], "machine"))
 
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -258,6 +262,7 @@ if __name__ == "__main__":
                 "instruction": instance[0],
                 "input": instance[1],
                 "output": instance[2],
+                "from": instance[3]
             }) + "\n")
     print(f"Saved {len(training_instances)} instances")
     unique_instructions = set([it[0] for it in training_instances]) # 去重
@@ -278,20 +283,24 @@ if __name__ == "__main__":
                     "instruction": instance[0],
                     "input": instance[1],
                     "output": instance[2],
+                    "from": instance[3]
                 }) + "\n")
 
     if args.include_seed_tasks:
         seed_tasks = [json.loads(l) for l in open(args.seed_tasks_path, "r")]
         for task in seed_tasks:
             for instance in task["instances"]:
-                training_instances.append((task["instruction"], instance["input"], instance["output"]))
+                # 添加种子数据，并标记来源为 "seed"
+                training_instances.append((task["instruction"], instance["input"], instance["output"], "seed"))
         print(f"Included {len(seed_tasks)} seed tasks")
 
     # get the prompt and completion for training gpt3
     gpt3_instances = []
     for instance in training_instances:
+        instruction, inst_input, output, source = instance
+        
         # get input and do preprocessing
-        inst_input = instance[1]
+        inst_input = inst_input
         # for some tasks, we check whether the input contains colon, and if so, we remove the part before the colon
         if random.random() < 0.5:
             colon_words = re.findall(r"(\w+):", inst_input)
@@ -303,7 +312,7 @@ if __name__ == "__main__":
             # we also replace two consecutive new lines with one new line half of the time
             inst_input = inst_input.replace("\n\n", "\n")
         
-        gpt3_instances.append(encode_instance(instance[0], inst_input, instance[2]))
+        gpt3_instances.append(encode_instance(instruction, inst_input, output, source=source))
 
     # remove duplicates
     filtered_instances = []
@@ -322,4 +331,5 @@ if __name__ == "__main__":
             fout.write(json.dumps({
                 "prompt": instance["prompt"],
                 "completion": instance["completion"],
+                "from": instance["from"],
             }) + "\n")
