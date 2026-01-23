@@ -124,6 +124,16 @@ def encode_instance(instruction, input, output, random_template=True, source="ma
         prompt = instruction.strip() + "\n\n" + input.strip() + "\n\n"
         completion = output.strip() + ""
 
+    # 处理 prompt，移除末尾的 "\nOutput:"
+    if prompt.endswith("Output:"):
+        prompt = prompt[:-len("Output:")].rstrip()  # 移除末尾的 "Output:" 并清理末尾空白
+
+    # 进一步处理 prompt，移除末尾的多余换行符
+    while prompt.endswith('\n\n'):
+        prompt = prompt[:-2]  # 移除末尾的双换行符
+    if prompt.endswith('\n'):
+        prompt = prompt[:-1]  # 移除末尾的单换行符
+
     data = {
         "prompt": prompt,
         "completion": completion,
