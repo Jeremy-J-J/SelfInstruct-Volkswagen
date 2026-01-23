@@ -52,6 +52,11 @@ def parse_args():
 
 
 def encode_instance(instruction, input, output, random_template=True, source="machine"):
+    # 检查 instruction 是否包含 "requirements:" 前缀，如果是则只取冒号后面的部分
+    if "requirements:" in instruction.lower():
+        parts = instruction.split("requirements:", 1)  # 只分割第一个匹配项
+        instruction = parts[1].strip()  # 获取冒号后的部分并去除空格
+    
     encoding_templates_w_input = [
         ("{instruction}\nInput: {input}\nOutput:", " {output}"),
         ("{instruction}\n\nInput: {input}\n\nOutput:", " {output}"),
