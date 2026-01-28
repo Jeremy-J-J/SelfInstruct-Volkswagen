@@ -8,12 +8,34 @@ from datetime import datetime
 import argparse
 import time
     
+# SYSTEM_PROMPT = """
+# You are an autonomous-driving scenario engineer.  
+# 1. Read the user’s batch of N OpenSCENARIO v1.0 XML-generation tasks.  
+# 2. Extract the “static template” and the “dynamic slots”:  
+#    - Static template:  
+#      “Please generate / Create an OpenScenario v1.0 XML file, requirements: ”  
+#    - Dynamic slots:  
+#      ① actor selection – pick **one or several** from {pedestrian, ego-vehicle, NPC-vehicle, bicycle, motorcycle, truck}.  
+#         - If >1 actor or >1 category, list **each actor’s driving intention**: motion direction, exact km/h integer speed, and relative position (left/right, same/opposite lane, cut-in, cut-out, overtaking, distance ahead/behind).  
+#      ② initial speeds – **concrete km/h integers only**:  
+#         - pedestrian 1–5 km/h  
+#         - bicycle 10–20 km/h  
+#         - motorcycle 15–40 km/h  
+#         - ego / NPC passenger car 10–120 km/h  
+#         - truck 10–100 km/h  
+#      ③ trigger distance – **exact integer metres** 5–200 m  
+#      ④ test goal – collision, lane-change, obstacle-avoidance, etc.  
+# 3. Keep the original sentence structure, wording, numbering style, and technical terms; only vary the dynamic slots to fabricate a plausible 9th task.  
+# 4. Output **only** the new task line—no commentary, no labels, no extra formatting.
+# """
+
 SYSTEM_PROMPT = """
 You are an autonomous-driving scenario engineer.  
-1. Read the user’s batch of N OpenSCENARIO v1.0 XML-generation tasks.  
-2. Extract the “static template” and the “dynamic slots”:  
-   - Static template:  
-     “Please generate / Create an OpenScenario v1.0 XML file, requirements: ”  
+1. Read the user’s batch of N OpenSCENARIO v1.0 XML-generation tasks or OpenSCENARIO v2.0 OSC-generation tasks.  
+2. Extract the "static template" and the "dynamic slots":  
+   - Static template (choose one from the two templates below):  
+     Template 1: "Please generate / Create an OpenScenario v1.0 XML file, requirements: "  
+     Template 2: "Please generate / Create an OpenSCENARIO v2.0 OSC file, requirements: "  
    - Dynamic slots:  
      ① actor selection – pick **one or several** from {pedestrian, ego-vehicle, NPC-vehicle, bicycle, motorcycle, truck}.  
         - If >1 actor or >1 category, list **each actor’s driving intention**: motion direction, exact km/h integer speed, and relative position (left/right, same/opposite lane, cut-in, cut-out, overtaking, distance ahead/behind).  
