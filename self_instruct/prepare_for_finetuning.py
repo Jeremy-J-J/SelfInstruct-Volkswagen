@@ -51,7 +51,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def encode_instance(instruction, input, output, random_template=True, source="machine"):
+def encode_instance(instruction, input, output, random_template=True, source="machine", type="general"):
     # 检查 instruction 是否包含 "requirements:" 前缀，如果是则只取冒号后面的部分
     if "requirements:" in instruction.lower():
         parts = instruction.split("requirements:", 1)  # 只分割第一个匹配项
@@ -104,6 +104,7 @@ def encode_instance(instruction, input, output, random_template=True, source="ma
         "input": input.strip(),
         "output": output.strip(),
         "from": source,
+        "type": type
     }
     return data
 
@@ -155,7 +156,7 @@ def filter_invalid_instances(instances):
         filtered_instances.append(instance)
     return filtered_instances
 
-def parse_instances_for_generation_task(raw_text, instruction, response_metadata):
+def parse_instances_for_generation_task(raw_text, instruction, response_metadata, type_info="general"):
     instances = []
     raw_text = raw_text.strip()
     # if re.findall("Example\s?\d*\.?", raw_text):
@@ -171,12 +172,25 @@ def parse_instances_for_generation_task(raw_text, instruction, response_metadata
     # else:
     #     return []
     import re
+
     SPLIT_RE_XML = re.compile(
         r'''
         ^(.*?)                       # 1. 非贪婪匹配前面所有内容 -> inst_input
-        (\n*```xml\n                 # 2. 开始标记（可能前面有0个或多个换行）
-        [\s\S]*?                     #    中间任意内容（包括换行，非贪婪）
-        </(?i:OpenScenario)>[\s\S]*?\n```\n*)    # 3. 结束标记（兼容大小写：OpenScenario 或 OpenSCENARIO，后面可能有换行）
+        (                            # 2. 开始捕获 XML 内容（三种模式）
+            # 模式 A: 代码块包裹的 XML (原有逻辑)
+            \n*```xml\n
+            [\s\S]*?
+            </(?i:OpenScenario)>[\s\S]*?\n```\n*
+            |
+            # 模式 B: 以 <?xml 开头的 XML（无代码块包裹）
+            \n*<\?xml
+            [\s\S]*?
+            </(?i:OpenScenario)>
+            |
+            # 模式 C: 以换行 + </OpenSCENARIO> 结尾的内容
+            \n[\s\S]*?
+            </OpenSCENARIO>
+        )
         ''',
         re.DOTALL | re.VERBOSE
     )
@@ -218,16 +232,18 @@ def parse_instances_for_generation_task(raw_text, instruction, response_metadata
         import xml.etree.ElementTree as ET
         try:
             ET.fromstring(inst_output.strip())
+            type_info = "GenXML"
         except ET.ParseError:
             # 如果解析失败，则返回None，表示不应包含此实例
-            return None
+            return [], "InvalidXML"
         except Exception:
             # 其他异常也视为非XML，返回None
-            return None
+            return [], "InvalidXML"
     elif match_osc:
         inst_input, inst_output = match_osc.groups()
+        type_info = "GenOSC"
     else:
-        return []
+        return [], None
 
     inst_input  = inst_input.rstrip()
     inst_output = inst_output            # 已经包含 \n\n```xml\n ... </OpenSCENARIO>\n```\n\n
@@ -239,7 +255,7 @@ def parse_instances_for_generation_task(raw_text, instruction, response_metadata
     
     instances = filter_invalid_instances(instances)
     instances = filter_duplicate_instances(instances)
-    return instances
+    return instances, type_info
 
 def parse_instances_for_classification_task(raw_text, instruction, response_metadata):
     instances = []
@@ -299,7 +315,7 @@ if __name__ == "__main__":
         if task["is_classification"]:
             task_instances = parse_instances_for_classification_task(task["raw_instances"], instruction, task["instance_metadata"])
         else:
-            task_instances = parse_instances_for_generation_task(task["raw_instances"], instruction, task["instance_metadata"])
+            task_instances, task_info = parse_instances_for_generation_task(task["raw_instances"], instruction, task["instance_metadata"])
 
         # we only allow max 5 instances per task
         task_instances = random.sample(task_instances, min(len(task_instances), 5))
@@ -309,7 +325,7 @@ if __name__ == "__main__":
 
         # 添加机器生成的数据，并标记来源为 "machine"
         for instance in task_instances:
-            training_instances.append((instance[0], instance[1], instance[2], "machine"))
+            training_instances.append((instance[0], instance[1], instance[2], "machine", task_info))
 
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -319,7 +335,8 @@ if __name__ == "__main__":
                 "instruction": instance[0],
                 "input": instance[1],
                 "output": instance[2],
-                "from": instance[3]
+                "from": instance[3],
+                "type": instance[4],
             }) + "\n")
     print(f"Saved {len(training_instances)} instances")
     unique_instructions = set([it[0] for it in training_instances]) # 去重
@@ -340,7 +357,8 @@ if __name__ == "__main__":
                     "instruction": instance[0],
                     "input": instance[1],
                     "output": instance[2],
-                    "from": instance[3]
+                    "from": instance[3],
+                    "type": instance[4],
                 }) + "\n")
 
     if args.include_seed_tasks:
@@ -348,14 +366,14 @@ if __name__ == "__main__":
         for task in seed_tasks:
             for instance in task["instances"]:
                 # 添加种子数据，并标记来源为 "seed"
-                training_instances.append((task["instruction"], instance["input"], instance["output"], "seed"))
+                training_instances.append((task["instruction"], instance["input"], instance["output"], "seed", "seed"))
         print(f"Included {len(seed_tasks)} seed tasks")
 
     # get the prompt and completion for training gpt3
     gpt3_instances = []
     
     for instance in training_instances:
-        instruction, inst_input, output, source = instance
+        instruction, inst_input, output, source, type = instance
         
         # get input and do preprocessing
         inst_input = inst_input
@@ -370,7 +388,7 @@ if __name__ == "__main__":
             # we also replace two consecutive new lines with one new line half of the time
             inst_input = inst_input.replace("\n\n", "\n")
         
-        encoded = encode_instance(instruction, inst_input, output, source=source)
+        encoded = encode_instance(instruction, inst_input, output, source=source, type=type)
         if encoded is not None:  # 只有当encode_instance返回有效数据时才添加
             gpt3_instances.append(encoded)
 
@@ -392,4 +410,5 @@ if __name__ == "__main__":
                 "prompt": instance["prompt"],
                 "completion": instance["completion"],
                 "from": instance["from"],
+                "type": instance["type"],
             }) + "\n")
