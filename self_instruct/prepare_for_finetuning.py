@@ -48,51 +48,14 @@ def parse_args():
         default="data/seed_tasks.jsonl",
         help="The path to the seed data.",
     )
-    parser.add_argument(
-        "--require_xml_output",
-        action="store_true",
-        help="Whether to require the output to be in valid XML format."
-    )
     return parser.parse_args()
 
 
-def encode_instance(instruction, input, output, random_template=True, source="machine", require_xml=False):
+def encode_instance(instruction, input, output, random_template=True, source="machine"):
     # 检查 instruction 是否包含 "requirements:" 前缀，如果是则只取冒号后面的部分
     if "requirements:" in instruction.lower():
         parts = instruction.split("requirements:", 1)  # 只分割第一个匹配项
         instruction = parts[1].strip()  # 获取冒号后的部分并去除空格
-
-    # 处理``xml\n 前缀，如果存在则移除
-    output = output.strip()
-    if output.startswith("```xml"):
-        # 查找``xml\n之后的内容
-        lines = output.split('\n', 1)  # 分割成最多两部分：第一行是``xml，第二部分是剩余内容
-        if len(lines) > 1:
-            output = lines[1]  # 取第二部分，即``xml\n之后的内容
-        else:
-            # 如果没有换行符，说明xml内容在同一条线上，这种情况不应该出现
-            # 为了安全起见，我们将输出设为原内容
-            pass
-            
-        # 再次清理可能的结束标记 ``` 
-        if "```" in output:
-            # 找到最后一个 ``` 的位置并截断
-            end_marker_index = output.rfind("```")
-            if end_marker_index != -1:
-                output = output[:end_marker_index].rstrip()  # 移除结束标记及其后的内容
-
-    # 如果需要XML格式，使用xml.etree.ElementTree来检测输出是否为有效的XML格式
-    is_xml_required = require_xml
-    if is_xml_required:
-        import xml.etree.ElementTree as ET
-        try:
-            ET.fromstring(output.strip())
-        except ET.ParseError:
-            # 如果解析失败，则返回None，表示不应包含此实例
-            return None
-        except Exception:
-            # 其他异常也视为非XML，返回None
-            return None
     
     encoding_templates_w_input = [
         ("{instruction}\nInput: {input}\nOutput:", " {output}"),
@@ -208,7 +171,7 @@ def parse_instances_for_generation_task(raw_text, instruction, response_metadata
     # else:
     #     return []
     import re
-    SPLIT_RE = re.compile(
+    SPLIT_RE_XML = re.compile(
         r'''
         ^(.*?)                       # 1. 非贪婪匹配前面所有内容 -> inst_input
         (\n*```xml\n                 # 2. 开始标记（可能前面有0个或多个换行）
@@ -217,12 +180,54 @@ def parse_instances_for_generation_task(raw_text, instruction, response_metadata
         ''',
         re.DOTALL | re.VERBOSE
     )
+    match_xml = SPLIT_RE_XML.search(raw_text)
 
-    match = SPLIT_RE.search(raw_text)
-    if not match:
+    SPLIT_RE_OSC = re.compile(
+        r'''
+        ^(.*?)                       # 1. 非贪婪匹配前面所有内容 -> inst_input
+        (\n*```osc\n                 # 2. 开始标记（可能前面有0个或多个换行）
+        [\s\S]*?                     #    中间任意内容（包括换行，非贪婪）
+        \n```\n*)                    # 3. 结束标记（\n```，后面可能有换行）
+        ''',
+        re.DOTALL | re.VERBOSE
+    )
+    match_osc = SPLIT_RE_OSC.search(raw_text)
+
+    if match_xml:
+        inst_input, inst_output = match_xml.groups()
+            # 处理``xml\n 前缀，如果存在则移除
+        inst_output = inst_output.strip()
+        if inst_output.startswith("```xml"):
+            # 查找``xml\n之后的内容
+            lines = inst_output.split('\n', 1)  # 分割成最多两部分：第一行是``xml，第二部分是剩余内容
+            if len(lines) > 1:
+                inst_output = lines[1]  # 取第二部分，即``xml\n之后的内容
+            else:
+                # 如果没有换行符，说明xml内容在同一条线上，这种情况不应该出现
+                # 为了安全起见，我们将输出设为原内容
+                pass
+                
+            # 再次清理可能的结束标记 ``` 
+            if "```" in inst_output:
+                # 找到最后一个 ``` 的位置并截断
+                end_marker_index = inst_output.rfind("```")
+                if end_marker_index != -1:
+                    inst_output = inst_output[:end_marker_index].rstrip()  # 移除结束标记及其后的内容
+
+        # 如果需要XML格式，使用xml.etree.ElementTree来检测输出是否为有效的XML格式
+        import xml.etree.ElementTree as ET
+        try:
+            ET.fromstring(inst_output.strip())
+        except ET.ParseError:
+            # 如果解析失败，则返回None，表示不应包含此实例
+            return None
+        except Exception:
+            # 其他异常也视为非XML，返回None
+            return None
+    elif match_osc:
+        inst_input, inst_output = match_osc.groups()
+    else:
         return []
-
-    inst_input, inst_output = match.groups()
 
     inst_input  = inst_input.rstrip()
     inst_output = inst_output            # 已经包含 \n\n```xml\n ... </OpenSCENARIO>\n```\n\n
@@ -295,8 +300,6 @@ if __name__ == "__main__":
             task_instances = parse_instances_for_classification_task(task["raw_instances"], instruction, task["instance_metadata"])
         else:
             task_instances = parse_instances_for_generation_task(task["raw_instances"], instruction, task["instance_metadata"])
-        # 对于生成任务，我们需要确保输出是有效的XML格式
-        require_xml = True
 
         # we only allow max 5 instances per task
         task_instances = random.sample(task_instances, min(len(task_instances), 5))
@@ -351,9 +354,6 @@ if __name__ == "__main__":
     # get the prompt and completion for training gpt3
     gpt3_instances = []
     
-    # 判断是否需要XML格式的输出
-    require_xml = hasattr(args, 'require_xml_output') and args.require_xml_output
-    
     for instance in training_instances:
         instruction, inst_input, output, source = instance
         
@@ -370,7 +370,7 @@ if __name__ == "__main__":
             # we also replace two consecutive new lines with one new line half of the time
             inst_input = inst_input.replace("\n\n", "\n")
         
-        encoded = encode_instance(instruction, inst_input, output, source=source, require_xml=require_xml)
+        encoded = encode_instance(instruction, inst_input, output, source=source)
         if encoded is not None:  # 只有当encode_instance返回有效数据时才添加
             gpt3_instances.append(encoded)
 

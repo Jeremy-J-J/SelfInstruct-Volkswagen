@@ -7,7 +7,9 @@ import openai
 from datetime import datetime
 import argparse
 import time
-    
+from templates.instance_gen_template import openscenario_gen_template
+
+SYSTEM_PROMPT = openscenario_gen_template
 
 def make_requests(
         engine, prompts, max_tokens, temperature, top_p, 
@@ -29,7 +31,7 @@ def make_requests(
             for p in prompts:
                 resp = client.chat.completions.create(
                     model="holo-model",
-                    messages=[{"role": "system", "content": ""}, {"role": "user", "content": p}],
+                    messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": p}],
                     max_tokens=target_length,
                     temperature=temperature,
                     top_p=top_p,

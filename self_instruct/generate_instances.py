@@ -7,7 +7,7 @@ import argparse
 import pandas as pd
 from collections import OrderedDict
 from gpt3_api import make_requests as make_gpt3_requests
-from templates.instance_gen_template import output_first_template_for_clf, input_first_template_for_gen
+from templates.instance_gen_template import output_first_template_for_clf, input_first_template_for_gen, openscenario_gen_template
 
 
 random.seed(42)
@@ -137,7 +137,9 @@ if __name__ == '__main__':
                         prompt = output_first_template_for_clf + " " + task["instruction"].strip() + "\n"
                         prompts.append(prompt)
                     else:
-                        prompt = input_first_template_for_gen + " " + task["instruction"].strip() + "\n"
+                        # prompt = input_first_template_for_gen + " " + task["instruction"].strip() + "\n"
+                        # prompt = openscenario_gen_template + " " + task["instruction"].strip() + "\n"
+                        prompt = task["instruction"].strip() + "\n"
                         prompts.append(prompt)
                 results = make_gpt3_requests(
                     engine=args.engine,
