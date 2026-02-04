@@ -8,57 +8,84 @@ from datetime import datetime
 import argparse
 import time
 
-SYSTEM_PROMPT = """
-You are a Function Call task generator.  
-1. Read the user's batch of N Function Call data-generation tasks.  
-2. Extract the "static template" and the "dynamic slots":  
-   - Static template: "Please generate a Function Call task data, requirements: "  
-   - Dynamic slots:  
-     ① function name – pick **exactly one** from {read_file, edit_file, delete_file, create_file, list_directory, grep_search, file_search}.  
-     ② function description and **all** arguments (mandatory & optional):  
-        1> read_file: Read the contents of a file.  
-           Args:  
-             - target_file (string, required) – path of the file to read  
-             - offset (integer, optional) – 1-indexed line to start reading  
-             - limit (integer, optional) – number of lines to read  
-             - should_read_entire_file (boolean, optional) – read whole file flag  
-             - agent (object, optional) – agent instance for permission checks  
-        2> edit_file: Edit a file according to instructions.  
-           Args:  
-             - target_file (string, required) – path to the file  
-             - instructions (string, required) – edit description  
-             - code_edit (dict|string, optional) – line-based edits {"1-5":"new"}  
-             - code_replace (string, optional) – full replacement content  
-             - agent (object, optional) – agent instance for permission checks  
-        3> delete_file: Delete a file.  
-           Args:  
-             - target_file (string, required) – path of the file to delete  
-             - agent (object, optional) – agent instance for permission checks  
-        4> create_file: Create a new file.  
-           Args:  
-             - file_path (string, required) – path where to create  
-             - content (string, required) – file content  
-             - agent (object, optional) – agent instance for permission checks  
-        5> list_directory: List directory contents.  
-           Args:  
-             - relative_workspace_path (string, required) – path to list  
-             - agent (object, optional) – agent instance for permission checks  
-        6> grep_search: Fast regex search inside files.  
-           Args:  
-             - query (string, required) – regex pattern to search  
-             - explanation (string, optional) – reason for search  
-             - case_sensitive (boolean, optional) – case sensitivity flag  
-             - include_pattern (string, optional) – glob files to include  
-             - exclude_pattern (string, optional) – glob files to exclude  
-             - agent (object, optional) – agent instance (unused)  
-        7> file_search: Fast fuzzy file search.  
-           Args:  
-             - query (string, required) – fuzzy filename to search  
-             - explanation (string, optional) – reason for search  
-             - agent (object, optional) – agent instance (unused)  
-3. Fabricate a plausible 9th task by keeping the original sentence structure and wording; vary only the dynamic slots.  
-4. Output **only** the new task line—no commentary, no labels, no extra formatting.  
-"""
+# SYSTEM_PROMPT = """
+# You are a Function Call task generator.  
+# 1. Read the user's batch of N Function Call data-generation tasks.  
+# 2. Extract the "static template" and the "dynamic slots":  
+#    - Static template: "Please generate a Function Call task data, requirements: "  
+#    - Dynamic slots:  
+#      ① function name – pick **exactly one** from {read_file, edit_file, delete_file, create_file, list_directory, grep_search, file_search}.  
+#      ② function description and **all** arguments (mandatory & optional):  
+#         1> read_file: Read the contents of a file.  
+#            Args:  
+#              - target_file (string, required) – path of the file to read  
+#              - offset (integer, optional) – 1-indexed line to start reading  
+#              - limit (integer, optional) – number of lines to read  
+#              - should_read_entire_file (boolean, optional) – read whole file flag  
+#              - agent (object, optional) – agent instance for permission checks  
+#         2> edit_file: Edit a file according to instructions.  
+#            Args:  
+#              - target_file (string, required) – path to the file  
+#              - instructions (string, required) – edit description  
+#              - code_edit (dict|string, optional) – line-based edits {"1-5":"new"}  
+#              - code_replace (string, optional) – full replacement content  
+#              - agent (object, optional) – agent instance for permission checks  
+#         3> delete_file: Delete a file.  
+#            Args:  
+#              - target_file (string, required) – path of the file to delete  
+#              - agent (object, optional) – agent instance for permission checks  
+#         4> create_file: Create a new file.  
+#            Args:  
+#              - file_path (string, required) – path where to create  
+#              - content (string, required) – file content  
+#              - agent (object, optional) – agent instance for permission checks  
+#         5> list_directory: List directory contents.  
+#            Args:  
+#              - relative_workspace_path (string, required) – path to list  
+#              - agent (object, optional) – agent instance for permission checks  
+#         6> grep_search: Fast regex search inside files.  
+#            Args:  
+#              - query (string, required) – regex pattern to search  
+#              - explanation (string, optional) – reason for search  
+#              - case_sensitive (boolean, optional) – case sensitivity flag  
+#              - include_pattern (string, optional) – glob files to include  
+#              - exclude_pattern (string, optional) – glob files to exclude  
+#              - agent (object, optional) – agent instance (unused)  
+#         7> file_search: Fast fuzzy file search.  
+#            Args:  
+#              - query (string, required) – fuzzy filename to search  
+#              - explanation (string, optional) – reason for search  
+#              - agent (object, optional) – agent instance (unused)  
+# 3. Fabricate a plausible 9th task by keeping the original sentence structure and wording; vary only the dynamic slots.  
+# 4. Output **only** the new task line—no commentary, no labels, no extra formatting.  
+# """
+
+SYSTEM_PROMPT = '''
+You are a Function Call task generator.
+1. Read the user's batch of N Function Call data-generation tasks.
+2. Extract the "static template" and the "dynamic slots":
+    - Static template: "Please generate a Function Call task data, requirements: "
+    - Dynamic slots:
+        ① function name – pick exactly one from {read_file, edit_file, delete_file, create_file, list_directory, grep_search, file_search}.
+        ② function description (use the description below to represent the selected function, do not list parameters):
+            1> read_file: Read the contents of a file.
+            2> edit_file: Edit a file according to instructions.
+            3> delete_file: Delete a file.
+            4> create_file: Create a new file.
+            5> list_directory: List directory contents.
+            6> grep_search: Fast regex search inside files.
+            7> file_search: Fast fuzzy file search.
+3. Fabricate a plausible task by keeping the original sentence structure and wording; vary only the dynamic slots (function name and function description).
+4. Output only the new task line—no commentary, no labels, no extra formatting.
+5. Do not include the specific function name in your response. Instead of merely repeating the function description, expand upon it naturally to create a more fluent and context-rich instruction.
+
+Example_0: Please generate a function call task data, requirements: I'll help you create a DSL code file for the specified test scenario. Let me first explore the existing structure to understand how to properly create this OSC file.\n\nFirst, let me check what files exist in the rag_osc/standard_test_scenarios folder to understand the structure:\n
+Example_1: Please generate a function call task data, requirements: Let me also check another example to get a better understanding of the structure:\n\n
+Example_2: Please generate a function call task data, requirements: Now let me check the basic scenarios directory to see if there are any base templates I should use:\n\n
+Example_3: Please generate a function call task data, requirements: Based on the requirements and examples I've seen, I'll now create the CDA_023.osc file that matches the specified test intent. Let me create this file with the proper structure:\n\n
+Example_4: Please generate a function call task data, requirements: Let me check what other files might be relevant for lane changing scenarios:\n\n
+Example_5: Please generate a function call task data, requirements: Now let me examine a few example files to understand the structure better, starting with CutInExit.osc since it seems most relevant to our cut-in scenario:\n\n
+'''
 
 def make_requests(
         engine, prompts, max_tokens, temperature, top_p, 
