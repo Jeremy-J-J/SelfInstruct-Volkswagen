@@ -66,7 +66,7 @@ You are a Function Call task generator.
 2. Extract the "static template" and the "dynamic slots":
     - Static template: "Please generate a Function Call task data, requirements: "
     - Dynamic slots:
-        ① function name – pick exactly one from {read_file, edit_file, delete_file, create_file, list_directory, grep_search, file_search}.
+        ① function name – pick exactly one from {read_file, edit_file, delete_file, create_file, list_directory, grep_search, file_search, run_terminal_command}.
         ② function description (use the description below to represent the selected function, do not list parameters):
             1> read_file: Read the contents of a file.
             2> edit_file: Edit a file according to instructions.
@@ -75,6 +75,7 @@ You are a Function Call task generator.
             5> list_directory: List directory contents.
             6> grep_search: Fast regex search inside files.
             7> file_search: Fast fuzzy file search.
+            8> run_terminal_command: Run a terminal command.
 3. Fabricate a plausible task by keeping the original sentence structure and wording; vary only the dynamic slots (function name and function description).
 4. Output only the new task line—no commentary, no labels, no extra formatting.
 5. Do not include the specific function name in your response. Instead of merely repeating the function description, expand upon it naturally to create a more fluent and context-rich instruction.
@@ -85,6 +86,7 @@ Example_2: Please generate a function call task data, requirements: Now let me c
 Example_3: Please generate a function call task data, requirements: Based on the requirements and examples I've seen, I'll now create the CDA_023.osc file that matches the specified test intent. Let me create this file with the proper structure:\n\n
 Example_4: Please generate a function call task data, requirements: Let me check what other files might be relevant for lane changing scenarios:\n\n
 Example_5: Please generate a function call task data, requirements: Now let me examine a few example files to understand the structure better, starting with CutInExit.osc since it seems most relevant to our cut-in scenario:\n\n
+Example_6: Please generate a function call task data, requirements: Let me try to see what files contain \"extend test_config\":\n\n
 '''
 
 def make_requests(
