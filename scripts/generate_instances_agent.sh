@@ -1,6 +1,6 @@
 batch_dir=data_agent/gpt3_generations/
 
-python self_instruct/generate_instances.py \
+python self_instruct/generate_instances_agent.py \
     --batch_dir ${batch_dir} \
     --input_file machine_generated_instructions.jsonl \
     --output_file machine_generated_instances.jsonl \
