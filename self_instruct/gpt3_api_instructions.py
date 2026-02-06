@@ -37,7 +37,7 @@ You are an autonomous-driving scenario engineer.
      Template 1: "Please generate / Create an OpenScenario v1.0 XML file, requirements: "  
      Template 2: "Please generate / Create an OpenSCENARIO v2.0 OSC file, requirements: "  
    - Dynamic slots:  
-     ① actor selection – pick **one or several** from {pedestrian, ego-vehicle, NPC-vehicle, bicycle, motorcycle, truck}.  
+     ① actor selection – pick **one or several** from {pedestrian, ego-vehicle, NPC-vehicle, bicycle, motorcycle, truck}. 
         - If >1 actor or >1 category, list **each actor’s driving intention**: motion direction, exact km/h integer speed, and relative position (left/right, same/opposite lane, cut-in, cut-out, overtaking, distance ahead/behind).  
      ② initial speeds – **concrete km/h integers only**:  
         - pedestrian 1–5 km/h  
@@ -49,6 +49,7 @@ You are an autonomous-driving scenario engineer.
      ④ test goal – collision, lane-change, obstacle-avoidance, etc.  
 3. Keep the original sentence structure, wording, numbering style, and technical terms; only vary the dynamic slots to fabricate a plausible 9th task.  
 4. Output **only** the new task line—no commentary, no labels, no extra formatting.
+5. Do not use expressions similar to "actor selection".
 """
 
 def make_requests(
@@ -62,8 +63,8 @@ def make_requests(
     # if organization is not None:
     #     openai.organization = organization
     
-    client = OpenAI(api_key=api_key, base_url="http://localhost:8007/v1")
-    # client = OpenAI(api_key=api_key, base_url="http://10.160.199.227:8006/v1")
+    # client = OpenAI(api_key=api_key, base_url="http://localhost:8007/v1")
+    client = OpenAI(api_key=api_key, base_url="http://10.160.199.227:8028/v1")
     retry_cnt = 0
     backoff_time = 30
     while retry_cnt <= retries:

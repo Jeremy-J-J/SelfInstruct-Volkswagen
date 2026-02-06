@@ -22,8 +22,9 @@ def make_requests(
     # if organization is not None:
     #     openai.organization = organization
     
-    client = OpenAI(api_key=api_key, base_url="http://localhost:8007/v1")
+    # client = OpenAI(api_key=api_key, base_url="http://localhost:8007/v1")
     # client = OpenAI(api_key=api_key, base_url="http://10.160.199.227:8006/v1")
+    client = OpenAI(api_key=api_key, base_url="http://10.160.199.227:8028/v1")
     retry_cnt = 0
     backoff_time = 30
     while retry_cnt <= retries:
