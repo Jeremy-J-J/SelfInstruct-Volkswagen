@@ -1,11 +1,38 @@
 import json
 import argparse
 import os
+import random
+import openai
 
-def convert_data(input_file_path, output_file_path):
+def translate_to_chinese(text, api_base, model_id):
+    """
+    使用大模型服务将文本翻译成中文
+    """
+    client = openai.OpenAI(
+        base_url=api_base,
+        api_key="EMPTY"
+    )
+    
+    try:
+        response = client.chat.completions.create(
+            model=model_id,
+            messages=[
+                {"role": "system", "content": "请将以下内容翻译成中文，不要有任何额外的解释或发挥，只返回翻译结果。"},
+                {"role": "user", "content": text}
+            ],
+            temperature=0.1
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"翻译出错: {e}")
+        return text  # 如果翻译失败，返回原文
+
+
+def convert_data(input_file_path, output_file_path, translate_ratio=1/3):
     """
     从输入文件中读取JSONL格式的数据，筛选出type为GenXML的记录，
     并将其转换为指定格式的JSONL数据，然后写入输出文件。
+    其中一部分数据的prompt会被翻译成中文。
     """
     
     # 系统消息内容
@@ -18,12 +45,27 @@ def convert_data(input_file_path, output_file_path):
     with open(input_file_path, 'r', encoding='utf-8') as infile, \
          open(output_file_path, 'w', encoding='utf-8') as outfile:
         
+        index = 0
+        translated_count = 0
+        
         for line in infile:
             # 解析每一行的JSON数据
             data = json.loads(line.strip())
             
             # 检查type字段是否为GenXML
             if data.get('type') == 'GenXML':
+                # 根据索引决定是否翻译（大约每三次取一次进行翻译）
+                should_translate = (index % 3 == 0)
+                
+                prompt_content = data['prompt']
+                
+                if should_translate:
+                    print(f"正在翻译第 {index} 条数据的prompt...")
+                    prompt_content = translate_to_chinese(data['prompt'], 
+                                                         "http://localhost:8007/v1", 
+                                                         "holo-model")
+                    translated_count += 1
+                
                 # 创建新的数据格式
                 converted_data = {
                     "messages": [
@@ -36,7 +78,7 @@ def convert_data(input_file_path, output_file_path):
                             "role": "user"
                         },
                         {
-                            "content": data['prompt'],     # prompt字段的值放入assistant角色
+                            "content": prompt_content,     # 可能是翻译后的prompt字段的值放入assistant角色
                             "role": "assistant"
                         }
                     ]
@@ -44,6 +86,11 @@ def convert_data(input_file_path, output_file_path):
                 
                 # 写入输出文件
                 outfile.write(json.dumps(converted_data, ensure_ascii=False) + '\n')
+                
+            index += 1
+    
+    print(f"总共翻译了 {translated_count} 条数据")
+
 
 def main():
     parser = argparse.ArgumentParser(description='Convert GenXML records from JSONL to a new format.')
@@ -71,6 +118,7 @@ def main():
     print(f"Converting data from {args.input_file} to {args.output_file}")
     convert_data(args.input_file, args.output_file)
     print("Conversion completed successfully!")
+
 
 if __name__ == "__main__":
     main()
