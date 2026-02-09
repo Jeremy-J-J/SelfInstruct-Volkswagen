@@ -60,11 +60,11 @@ def encode_instance(instruction, input, output, random_template=True, source="ma
     encoding_templates_w_input = [
         ("{instruction}\nInput: {input}\nOutput:", " {output}"),
         ("{instruction}\n\nInput: {input}\n\nOutput:", " {output}"),
-        ("Task: {instruction}\nInput: {input}\nOutput:", " {output}"),
+        ("{instruction}\nInput: {input}\nOutput:", " {output}"),
         ("{instruction}\n\n{input}\n\nOutput:", " {output}"),
         ("{instruction}\n\n{input}\n\n", "{output}"),
         ("{instruction}\n{input}\n\n", "{output}"),
-        ("Task: {instruction}\n\n{input}\n\n", "{output}"),
+        ("{instruction}\n\n{input}\n\n", "{output}"),
     ]
     encoding_templates_wo_input = [
         ("{instruction} Output:", " {output}"),
@@ -72,7 +72,7 @@ def encode_instance(instruction, input, output, random_template=True, source="ma
         ("{instruction}\n\nOutput:", " {output}"),
         ("{instruction}\n", "{output}"),
         ("{instruction}\n\n", "{output}"),
-        ("Task: {instruction}\n\n", "{output}"),
+        ("{instruction}\n\n", "{output}"),
     ]
     if random_template:
         if input.strip() != "":
