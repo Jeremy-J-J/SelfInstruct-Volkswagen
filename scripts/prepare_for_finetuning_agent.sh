@@ -1,4 +1,4 @@
-batch_dir=data_agent/gpt3_generations/
+batch_dir=data_agent_qwen3-coder-next/gpt3_generations/
 
 python self_instruct/prepare_for_finetuning_agent.py \
     --instance_files ${batch_dir}/machine_generated_instances.jsonl \
