@@ -26,7 +26,8 @@ def convert_data_format(input_file, output_file):
     """
     转换数据格式
     """
-    client = OpenAI(base_url="http://localhost:8007/v1", api_key="dummy-key")
+    # client = OpenAI(base_url="http://localhost:8007/v1", api_key="dummy-key")
+    client = OpenAI(base_url="http://10.160.199.227:8028/v1", api_key="dummy-key")
 
     # 固定的tools定义 - 修改为JSON对象数组而不是字符串
     tools_definition = [
@@ -94,8 +95,8 @@ def convert_data_format(input_file, output_file):
 
 
 if __name__ == "__main__":
-    input_file = "/workspace/pro/selfInstruct/SelfInstruct-Volkswagen/data_agent/gpt3_generations/finetuning_data/gpt3_finetuning_data_test.jsonl" 
-    output_file = "/workspace/pro/selfInstruct/SelfInstruct-Volkswagen/data_agent/gpt3_generations/finetuning_data/gpt3_finetuning_data_test_converted.jsonl"
+    input_file = "/workspace/pro/selfInstruct/SelfInstruct-Volkswagen/data_agent_qwen3-coder-next/gpt3_generations/finetuning_data/gpt3_finetuning_data_10032.jsonl" 
+    output_file = "/workspace/pro/selfInstruct/SelfInstruct-Volkswagen/data_agent_qwen3-coder-next/gpt3_generations/finetuning_data/gpt3_finetuning_data_10032_converted.jsonl"
     
     # 检查输入文件是否存在
     if not os.path.exists(input_file):

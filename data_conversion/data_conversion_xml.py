@@ -62,7 +62,7 @@ def convert_data(input_file_path, output_file_path, translate_ratio=1/3):
                 if should_translate:
                     print(f"正在翻译第 {index} 条数据的prompt...")
                     prompt_content = translate_to_chinese(data['prompt'], 
-                                                         "http://localhost:8007/v1", 
+                                                         "http://10.160.199.227:8028/v1", 
                                                          "holo-model")
                     translated_count += 1
                 
@@ -97,7 +97,7 @@ def main():
     parser.add_argument(
         '--input_file',
         type=str,
-        default='/workspace/pro/selfInstruct/SelfInstruct-Volkswagen/data_10k/gpt3_generations/finetuning_data/gpt3_finetuning_data_4168.jsonl',
+        default='/workspace/pro/selfInstruct/bk/data_过年/data_QA/gpt3_finetuning_data_60058.jsonl',
         help='Input JSONL file path'
     )
     parser.add_argument(
